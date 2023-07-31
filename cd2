@@ -1,0 +1,44 @@
+#!/bin/sh
+
+function cd() {
+    # actually call cd
+    # on some shells this may need to be changed to
+    # command cd "$@"
+    builtin cd "$@"
+    cd_exit=$?
+    if [ $cd_exit -ne 0 ]; then
+        return $cd_exit
+    fi
+
+    size=$(stty size)
+    rows=${size% *}
+    cols=${size#* }
+
+    # let the info pane take up 1/3rd of the space
+    info_cols=$((cols / 3))
+    info_start=$((cols - info_cols))
+
+    # save cursor position and disable line wrapping
+    echo -ne '\e7\e[7l'
+
+    # for every line of ls output that fits, print it to the screen
+    line=1
+    while read -r file
+    do
+        if [ $line -eq $rows ]; then
+            break
+        fi
+        printf "\e[$((line + 1));${info_start}H\e[0K\e[0m| $file"
+        line=$((line + 1))
+    done <<< "$(ls -1 -A --color=always)"
+
+    # fill up the rest of the screen with the panel edge
+    while [ $line -lt $rows ]
+    do
+        printf "\e[$((line + 1));${info_start}H\e[0K\e[0m|"
+        line=$((line + 1))
+    done
+
+    # restore cursor position, restore line wrapping, reset colors
+    echo -e '\e8\e[7h\e[0m'
+}
